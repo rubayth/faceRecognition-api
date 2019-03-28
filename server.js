@@ -1,13 +1,24 @@
 const express = require('express');
 const bp = require('body-parser');
 const cors = require('cors');
-//const bcrypt = require('bcrypt-nodejs')
+const bcrypt = require('bcrypt-nodejs');
+
+const db = require('knex')({
+    client: 'pg',
+    connection: {
+      host : '127.0.0.1',
+      user : 'postgres',
+      password : 'Orko5196!',
+      database : 'face-db'
+    }
+  });
+
 
 const app = express();
 app.use(bp.json());
 app.use(cors());
 
-const db = {
+const db2 = {
     users: [
         {
             id: '123',
@@ -42,45 +53,40 @@ app.post('/signin', (req, res) =>{
 
 app.post('/register', (req, res) => {
     const { email, name, password } = req.body;
-
-    
-    db.users.push({
-        id: '125',
-        name: name,
+    db('users')
+    .returning('*')
+    .insert({
         email: email,
-        entries: 0,
-        joined: new Date(),
+        name: name,
+        joined: new Date()
+    }).
+    then(user => {
+        res.json(user[0]);
     })
-    res.json(db.users[db.users.length-1]);
+    .catch(err => res.status(400).json('unable to register'))
+    
 })
 
 app.get('/profile/:id', (req, res) => {
     const { id } = req.params;
-    let found = false;
-    db.users.forEach( user => {
-        if (user.id === id) {
-            found = true;
-            return res.json(user);
-        }
+    db.select('*').from('users').where({
+        id:id
+    }).then(user => {
+        if (user.length) res.json(user[0])
+        else res.status(400).json('not found')
     })
-    if (!found){
-        res.status('400').json("not found");
-    }
+    .catch(err => res.status(400).json('Error getting user'))
 })
 
 app.put('/image', (req, res) => {
     const { id } = req.body;
-    let found = false;
-    db.users.forEach( user => {
-        if (user.id === id) {
-            found = true;
-            user.entries++;
-            return res.json(user.entries);
-        }
+     db('users').where('id','=',id)
+    .increment('entries', 1)
+    .returning('entries')
+    .then(entries => {
+        res.json(entries[0])
     })
-    if (!found){
-        res.status('400').json("not found");
-    }
+    .catch(err => res.status(400).json('unable to get entries'))
 })
 
 /*
